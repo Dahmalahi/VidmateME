@@ -190,8 +190,8 @@ Interface:
 | **Nokia S60v3** | N95, N82, E71, E63 | ✅ Perfect |
 | **Nokia S60v5** | 5800, N97, X6 | ✅ Perfect |
 | **Nokia S40** | 2700, 3110, C3 | ✅ Good (no video) |
-| **Itel** | it5600, it2171 | ✅ Good |
-| **Emulators** | WTK 2.5.2, MicroEmulator | ✅ Perfect |
+| **Itel** | it5615 and other | ✅ Good |
+| **Emulators** | WTK 2.5.2, MicroEmulator, j2meloader | ✅ Perfect |
 
 ### 📋 Technical Requirements
 
