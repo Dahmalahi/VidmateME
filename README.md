@@ -5,7 +5,7 @@
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Version](https://img.shields.io/badge/Version-2.0.0-brightgreen)
 ![Build](https://img.shields.io/badge/Build-Passing-success)
-![Downloads](https://img.shields.io/badge/Downloads-5K+-blue)
+
 
 
 ![7en49](https://github.com/user-attachments/assets/af3059ba-77bc-443c-8a45-63c74b88467c)
