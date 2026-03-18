@@ -14,7 +14,8 @@ public class SearchCanvas extends Form implements CommandListener, Runnable {
     private int resultsPerPage = 10;
     
     public SearchCanvas(VidmateME m) {
-        super("RECHERCHER VIDEOS");
+        // ✅ CHANGED: Updated title
+        super("RECHERCHER VIDEOS - UniMedia v2.1");
         midlet = m;
         
         searchField = new TextField("Recherche YouTube:", "", 100, TextField.ANY);
@@ -22,7 +23,9 @@ public class SearchCanvas extends Form implements CommandListener, Runnable {
         
         append(new Spacer(getWidth(), 5));
         
-        StringItem suggestions = new StringItem("", ">> SUGGESTIONS:\n");
+        // ✅ NEW: Updated suggestions section
+        StringItem suggestions = new StringItem("", 
+            ">> RECHERCHE RAPIDE DASHTUBE:\n");
         suggestions.setLayout(Item.LAYOUT_NEWLINE_AFTER);
         append(suggestions);
         
@@ -32,16 +35,20 @@ public class SearchCanvas extends Form implements CommandListener, Runnable {
         quickSearches.append("Tutoriels", null);
         quickSearches.append("Gaming", null);
         quickSearches.append("Series TV", null);
+        // ✅ NEW: Popular Today button
+        quickSearches.append("Populaire Aujourd'hui", null);
         append(quickSearches);
         
         append(new Spacer(getWidth(), 5));
         
+        // ✅ CHANGED: Updated info text
         StringItem info = new StringItem("", 
             ">> CONSEILS:\n" +
+            "* Recherche ultra-rapide via Dashtube\n" +
             "* Soyez precis dans vos recherches\n" +
-            "* Utilisez des mots-cles courts\n" +
-            "* Essayez plusieurs APIs si echec\n" +
-            "* Pagination disponible (10 par page)\n");
+            "* 4 APIs de fallback disponibles\n" +
+            "* Pagination: 10 resultats par page\n" +
+            "* Appuyez sur 'Populaire' pour tendances\n");
         info.setLayout(Item.LAYOUT_NEWLINE_AFTER);
         append(info);
         
@@ -64,6 +71,8 @@ public class SearchCanvas extends Form implements CommandListener, Runnable {
                     case 2: query = "tutoriel"; break;
                     case 3: query = "gaming"; break;
                     case 4: query = "series"; break;
+                    // ✅ NEW: Popular Today query
+                    case 5: query = "trending today"; break;
                     default: query = ""; break;
                 }
             }
@@ -73,7 +82,7 @@ public class SearchCanvas extends Form implements CommandListener, Runnable {
                 return;
             }
             
-            showProgressScreen("Recherche en cours...", "Recherche: " + query);
+            showProgressScreen("Recherche Dashtube...", "Recherche: " + query);
             
             if (searchThread != null && searchThread.isAlive()) {
                 searchThread.interrupt();
@@ -95,6 +104,7 @@ public class SearchCanvas extends Form implements CommandListener, Runnable {
                     case 2: query = "tutoriel"; break;
                     case 3: query = "gaming"; break;
                     case 4: query = "series"; break;
+                    case 5: query = "trending today"; break; // ✅ NEW
                 }
             }
             
@@ -106,7 +116,8 @@ public class SearchCanvas extends Form implements CommandListener, Runnable {
                     "Suggestions:\n" +
                     "* Verifiez l'orthographe\n" +
                     "* Essayez des mots-cles differents\n" +
-                    "* Utilisez des termes plus generaux", 
+                    "* Utilisez des termes plus generaux\n" +
+                    "* Le backend Dashtube peut etre temporairement indisponible", 
                     AlertType.INFO);
                 return;
             }
@@ -118,12 +129,15 @@ public class SearchCanvas extends Form implements CommandListener, Runnable {
             String errorMsg = e.getMessage();
             if (errorMsg == null) errorMsg = "Erreur inconnue";
             
+            // ✅ CHANGED: Updated error message
             showAlert("ERREUR DE RECHERCHE", 
                 "Impossible de rechercher:\n" + errorMsg + "\n\n" +
                 "Solutions:\n" +
                 "* Verifiez votre connexion\n" +
+                "* Dashtube peut etre indisponible (fallback auto)\n" +
                 "* Reessayez dans quelques instants\n" +
-                "* Changez de proxy (Parametres)", 
+                "* Changez de proxy (Parametres)\n" +
+                "* Consultez 'Diagnostic APIs'", 
                 AlertType.ERROR);
         }
     }

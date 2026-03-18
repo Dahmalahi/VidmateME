@@ -4,24 +4,24 @@ public class SettingsCanvas extends Form implements CommandListener {
     private VidmateME midlet;
     private SettingsManager settings;
     
-    // Elements UI
     private StringItem pathDisplay;
     private ChoiceGroup proxyChoice;
     private ChoiceGroup apiChoice;
     private ChoiceGroup qualityChoice;
     private ChoiceGroup thumbnailChoice;
     private ChoiceGroup audioChoice;
+    private ChoiceGroup speedLimitChoice;
     
     private Command saveCmd = new Command("Sauvegarder", Command.SCREEN, 1);
     private Command backCmd = new Command("Retour", Command.BACK, 2);
     private Command changePathCmd = new Command("Changer", Command.ITEM, 3);
+    private Command statsCmd = new Command("Statistiques", Command.SCREEN, 4);
     
     public SettingsCanvas(VidmateME m) {
-        super("Parametres");
+        super("Parametres - UniMedia v2.1");
         midlet = m;
         settings = SettingsManager.getInstance();
         
-        // Chemin de stockage
         pathDisplay = new StringItem("Chemin actuel: ", settings.getStoragePath());
         append(pathDisplay);
         changePathCmd = new Command("Changer", Command.ITEM, 1);
@@ -34,14 +34,12 @@ public class SettingsCanvas extends Form implements CommandListener {
         
         append("\n");
         
-        // Choix du Proxy
         proxyChoice = new ChoiceGroup("Proxy:", Choice.EXCLUSIVE);
         proxyChoice.append("Direct (aucun)", null);
         proxyChoice.append("Glype (nnp.nnchan.ru)", null);
         proxyChoice.append("Cloudflare (aged-darkness)", null);
         proxyChoice.append("William's Mobile", null);
         
-        // Selection actuelle
         String currentProxy = settings.getCurrentProxy();
         if (currentProxy.equals("Direct")) proxyChoice.setSelectedIndex(0, true);
         else if (currentProxy.equals("Glype")) proxyChoice.setSelectedIndex(1, true);
@@ -52,20 +50,18 @@ public class SettingsCanvas extends Form implements CommandListener {
         
         append("\n");
         
-        // Choix de l'API
         apiChoice = new ChoiceGroup("API de recherche:", Choice.EXCLUSIVE);
-        apiChoice.append("S60Tube (HTML)", null);
-        apiChoice.append("API Asepharyana (JSON)", null);
+        apiChoice.append("Dashtube (JSON, rapide)", null);
+        apiChoice.append("S60Tube (HTML, fallback)", null);
         
         String currentApi = settings.getCurrentApi();
-        if (currentApi.equals("S60Tube")) apiChoice.setSelectedIndex(0, true);
+        if (currentApi.equals("Dashtube")) apiChoice.setSelectedIndex(0, true);
         else apiChoice.setSelectedIndex(1, true);
         
         append(apiChoice);
         
         append("\n");
         
-        // Qualite par defaut
         qualityChoice = new ChoiceGroup("Qualite par defaut:", Choice.EXCLUSIVE);
         qualityChoice.append("144p (bas)", null);
         qualityChoice.append("240p (moyen)", null);
@@ -82,7 +78,33 @@ public class SettingsCanvas extends Form implements CommandListener {
         
         append("\n");
         
-        // Thumbnails
+        speedLimitChoice = new ChoiceGroup("Limite de vitesse:", Choice.EXCLUSIVE);
+        speedLimitChoice.append("Illimite (max)", null);
+        speedLimitChoice.append("10 KB/s (tres lent)", null);
+        speedLimitChoice.append("20 KB/s (lent)", null);
+        speedLimitChoice.append("40 KB/s (moyen)", null);
+        speedLimitChoice.append("80 KB/s (rapide)", null);
+        speedLimitChoice.append("160 KB/s (tres rapide)", null);
+        
+        int currentSpeedLimit = settings.getSpeedLimitKBps();
+        if (currentSpeedLimit == 0) speedLimitChoice.setSelectedIndex(0, true);
+        else if (currentSpeedLimit <= 10) speedLimitChoice.setSelectedIndex(1, true);
+        else if (currentSpeedLimit <= 20) speedLimitChoice.setSelectedIndex(2, true);
+        else if (currentSpeedLimit <= 40) speedLimitChoice.setSelectedIndex(3, true);
+        else if (currentSpeedLimit <= 80) speedLimitChoice.setSelectedIndex(4, true);
+        else speedLimitChoice.setSelectedIndex(5, true);
+        
+        append(speedLimitChoice);
+        
+        StringItem speedInfo = new StringItem("", 
+            "Note: Limite la bande passante pour\n" +
+            "economiser les donnees mobiles.\n" +
+            "'Illimite' = vitesse maximale.\n");
+        speedInfo.setLayout(Item.LAYOUT_NEWLINE_AFTER);
+        append(speedInfo);
+        
+        append("\n");
+        
         thumbnailChoice = new ChoiceGroup("Afficher thumbnails:", Choice.EXCLUSIVE);
         thumbnailChoice.append("Oui", null);
         thumbnailChoice.append("Non", null);
@@ -92,7 +114,6 @@ public class SettingsCanvas extends Form implements CommandListener {
         
         append("\n");
         
-        // Mode audio
         audioChoice = new ChoiceGroup("Mode audio par defaut:", Choice.EXCLUSIVE);
         audioChoice.append("Video", null);
         audioChoice.append("Audio seulement", null);
@@ -100,9 +121,9 @@ public class SettingsCanvas extends Form implements CommandListener {
         audioChoice.setSelectedIndex(settings.isDownloadAudio() ? 1 : 0, true);
         append(audioChoice);
         
-        // Commandes
         addCommand(saveCmd);
         addCommand(backCmd);
+        addCommand(statsCmd);
         setCommandListener(this);
     }
     
@@ -111,11 +132,12 @@ public class SettingsCanvas extends Form implements CommandListener {
             midlet.backToMenu();
         } else if (c == saveCmd) {
             saveSettings();
+        } else if (c == statsCmd) {
+            showStatsScreen();
         }
     }
     
     private void saveSettings() {
-        // Sauvegarder Proxy
         switch (proxyChoice.getSelectedIndex()) {
             case 0: settings.setCurrentProxy("Direct"); break;
             case 1: settings.setCurrentProxy("Glype"); break;
@@ -123,10 +145,8 @@ public class SettingsCanvas extends Form implements CommandListener {
             case 3: settings.setCurrentProxy("William"); break;
         }
         
-        // Sauvegarder API
-        settings.setCurrentApi(apiChoice.getSelectedIndex() == 0 ? "S60Tube" : "Asepharyana");
+        settings.setCurrentApi(apiChoice.getSelectedIndex() == 0 ? "Dashtube" : "S60Tube");
         
-        // Sauvegarder Qualite
         switch (qualityChoice.getSelectedIndex()) {
             case 0: settings.setDefaultQuality("144p"); break;
             case 1: settings.setDefaultQuality("240p"); break;
@@ -134,27 +154,46 @@ public class SettingsCanvas extends Form implements CommandListener {
             case 3: settings.setDefaultQuality("480p"); break;
         }
         
-        // Sauvegarder Thumbnails
-        settings.setShowThumbnails(thumbnailChoice.getSelectedIndex() == 0);
+        int speedLimit = 0;
+        switch (speedLimitChoice.getSelectedIndex()) {
+            case 0: speedLimit = 0; break;
+            case 1: speedLimit = 10; break;
+            case 2: speedLimit = 20; break;
+            case 3: speedLimit = 40; break;
+            case 4: speedLimit = 80; break;
+            case 5: speedLimit = 160; break;
+        }
+        settings.setSpeedLimitKBps(speedLimit);
         
-        // Sauvegarder Mode Audio
+        settings.setShowThumbnails(thumbnailChoice.getSelectedIndex() == 0);
         settings.setDownloadAudio(audioChoice.getSelectedIndex() == 1);
         
-        // Sauvegarder dans RMS
         settings.saveSettings();
         
-        // Confirmation
-        Alert alert = new Alert("Sauvegarde", "Parametres enregistres avec succes!", null, AlertType.CONFIRMATION);
+        Alert alert = new Alert("Sauvegarde", 
+            "Parametres enregistres avec succes!\n\n" +
+            "Stockage: VidmateME/\n" +
+            "Limite: " + (speedLimit == 0 ? "Illimitee" : speedLimit + " KB/s"),
+            null, AlertType.CONFIRMATION);
         alert.setTimeout(2000);
         midlet.getDisplay().setCurrent(alert, this);
     }
     
+    private void showStatsScreen() {
+        StatsCanvas stats = new StatsCanvas(midlet, this);
+        midlet.getDisplay().setCurrent(stats);
+    }
+    
+    // ✅ CHANGED: Updated path selector with VidmateME folders and auto-detect
     private void showPathSelector() {
         List pathList = new List("Choisir emplacement", List.IMPLICIT);
-        pathList.append("Carte SD (E:/)", null);
-        pathList.append("Memoire interne (C:/)", null);
-        pathList.append("TFCard", null);
+        
+        pathList.append("Auto-detecter (recommande)", null); // ✅ NEW: First option
+        pathList.append("Carte SD (E:/VidmateME/)", null);
+        pathList.append("Memoire interne (C:/VidmateME/)", null);
+        pathList.append("TFCard (TFCard/VidmateME/)", null);
         pathList.append("Personaliser...", null);
+        
         pathList.addCommand(new Command("Retour", Command.BACK, 1));
         pathList.setCommandListener(new CommandListener() {
             public void commandAction(Command c, Displayable d) {
@@ -166,21 +205,65 @@ public class SettingsCanvas extends Form implements CommandListener {
                     String newPath = "";
                     
                     switch (idx) {
-                        case 0: newPath = "file:///E:/VidmateME/"; break;
-                        case 1: newPath = "file:///C:/VidmateME/"; break;
-                        case 2: newPath = "file:///TFCard/VidmateME/"; break;
-                        case 3:
+                        case 0:
+                            // ✅ Auto-detect
+                            StorageManager.resetStoragePath();
+                            newPath = StorageManager.getDownloadPath();
+                            Alert info = new Alert("Auto-detection",
+                                "Chemin detecte:\n" + newPath + "\n\n" +
+                                "Structure:\n" +
+                                "VidmateME/\n" +
+                                "  - videos/\n" +
+                                "  - audios/\n" +
+                                "  - thumbnails/",
+                                null, AlertType.INFO);
+                            info.setTimeout(4000);
+                            midlet.getDisplay().setCurrent(info, SettingsCanvas.this);
+                            pathDisplay.setText(newPath);
+                            settings.setStoragePath(newPath);
+                            settings.saveSettings();
+                            return;
+                        case 1: 
+                            newPath = "file:///E:/VidmateME/"; 
+                            break;
+                        case 2: 
+                            newPath = "file:///C:/VidmateME/"; 
+                            break;
+                        case 3: 
+                            newPath = "file:///TFCard/VidmateME/"; 
+                            break;
+                        case 4:
                             // Personaliser
-                            final TextBox customPath = new TextBox("Chemin personnalisé", 
+                            final TextBox customPath = new TextBox("Chemin personnalise", 
                                 settings.getStoragePath(), 100, TextField.URL);
                             customPath.addCommand(new Command("OK", Command.OK, 1));
                             customPath.addCommand(new Command("Annuler", Command.BACK, 2));
                             customPath.setCommandListener(new CommandListener() {
                                 public void commandAction(Command c, Displayable d) {
                                     if (c.getCommandType() == Command.OK) {
-                                        settings.setStoragePath(customPath.getString());
-                                        pathDisplay.setText(settings.getStoragePath());
-                                        settings.saveSettings();
+                                        String custom = customPath.getString();
+                                        // ✅ Ensure ends with VidmateME/
+                                        if (!custom.endsWith("/")) custom += "/";
+                                        if (!custom.endsWith("VidmateME/")) {
+                                            if (custom.endsWith("/")) {
+                                                custom += "VidmateME/";
+                                            } else {
+                                                custom += "/VidmateME/";
+                                            }
+                                        }
+                                        
+                                        try {
+                                            StorageManager.setStoragePath(custom);
+                                            settings.setStoragePath(custom);
+                                            pathDisplay.setText(custom);
+                                            settings.saveSettings();
+                                        } catch (Exception e) {
+                                            Alert error = new Alert("Erreur",
+                                                "Chemin invalide: " + e.getMessage(),
+                                                null, AlertType.ERROR);
+                                            error.setTimeout(3000);
+                                            midlet.getDisplay().setCurrent(error, SettingsCanvas.this);
+                                        }
                                     }
                                     midlet.getDisplay().setCurrent(SettingsCanvas.this);
                                 }
@@ -190,9 +273,19 @@ public class SettingsCanvas extends Form implements CommandListener {
                     }
                     
                     if (!newPath.equals("")) {
-                        settings.setStoragePath(newPath);
-                        pathDisplay.setText(newPath);
-                        settings.saveSettings();
+                        try {
+                            StorageManager.setStoragePath(newPath);
+                            settings.setStoragePath(newPath);
+                            pathDisplay.setText(newPath);
+                            settings.saveSettings();
+                        } catch (Exception e) {
+                            Alert error = new Alert("Erreur",
+                                "Impossible d'utiliser ce chemin.\n" +
+                                "Essayez Auto-detecter.",
+                                null, AlertType.ERROR);
+                            error.setTimeout(2000);
+                            midlet.getDisplay().setCurrent(error, SettingsCanvas.this);
+                        }
                     }
                     midlet.getDisplay().setCurrent(SettingsCanvas.this);
                 }

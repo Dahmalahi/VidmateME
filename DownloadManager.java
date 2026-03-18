@@ -9,9 +9,13 @@ public class DownloadManager implements Runnable {
     private Thread downloadThread;
     private boolean running = true;
     
+    // ✅ NEW: Speed limiting
+    private int maxSpeedKBps = 0; // 0 = unlimited
+    
     private DownloadManager() {
         downloadThread = new Thread(this);
         downloadThread.start();
+        loadSpeedLimit();
     }
     
     public static synchronized DownloadManager getInstance() {
@@ -21,16 +25,28 @@ public class DownloadManager implements Runnable {
         return instance;
     }
     
+    // ✅ NEW: Load speed limit from settings
+    private void loadSpeedLimit() {
+        try {
+            maxSpeedKBps = SettingsManager.getInstance().getSpeedLimitKBps();
+        } catch (Exception e) {
+            maxSpeedKBps = 0; // Unlimited by default
+        }
+    }
+    
+    // ✅ NEW: Update speed limit dynamically
+    public void setSpeedLimit(int kbps) {
+        this.maxSpeedKBps = kbps;
+    }
+    
     public void queueDownload(VideoItem item) {
         synchronized (queuedDownloads) {
-            // CORRECTION: Utiliser le format de fichier correct
-            String extension = ".mp4"; // Par défaut
+            String extension = ".mp4";
             String folderName = "videos/";
             
             if (item.fileFormat != null && item.fileFormat.length() > 0) {
                 extension = "." + item.fileFormat;
                 
-                // Déterminer le dossier selon le type
                 if (item.fileFormat.equals("mp3") || item.fileFormat.equals("aac") || item.fileFormat.equals("wav")) {
                     folderName = "audios/";
                 } else {
@@ -41,7 +57,6 @@ public class DownloadManager implements Runnable {
             String filename = sanitize(item.title) + extension;
             String downloadPath = StorageManager.getDownloadPath() + folderName;
             
-            // Créer le dossier si nécessaire
             try {
                 javax.microedition.io.file.FileConnection dir = 
                     (javax.microedition.io.file.FileConnection) 
@@ -104,19 +119,54 @@ public class DownloadManager implements Runnable {
             os = StorageManager.openOutputStream(item.getFilePath(), false);
             is = conn.openInputStream();
             
+            // ✅ CHANGED: Implement speed limiting
             byte[] buffer = new byte[1024];
             int len;
             long downloaded = 0;
             long lastUpdate = System.currentTimeMillis();
+            long lastSpeedCheck = System.currentTimeMillis();
+            long bytesInCurrentSecond = 0;
             
             while ((len = is.read(buffer)) != -1) {
                 os.write(buffer, 0, len);
                 downloaded += len;
+                bytesInCurrentSecond += len;
                 
+                // Update progress display
                 long now = System.currentTimeMillis();
                 if (now - lastUpdate > 500) {
+                    long elapsed = now - lastSpeedCheck;
+                    if (elapsed > 0) {
+                        long currentSpeed = (bytesInCurrentSecond * 1000) / elapsed / 1024; // KB/s
+                        item.setSpeed(currentSpeed);
+                    }
                     item.updateProgress(downloaded, totalSize);
                     lastUpdate = now;
+                }
+                
+                // ✅ NEW: Speed limiting logic
+                if (maxSpeedKBps > 0) {
+                    long elapsed = now - lastSpeedCheck;
+                    if (elapsed >= 1000) {
+                        // Reset counter every second
+                        lastSpeedCheck = now;
+                        bytesInCurrentSecond = 0;
+                    } else {
+                        // Calculate if we need to throttle
+                        long maxBytesPerSecond = maxSpeedKBps * 1024L;
+                        long expectedTime = (bytesInCurrentSecond * 1000L) / maxBytesPerSecond;
+                        
+                        if (elapsed < expectedTime) {
+                            long sleepTime = expectedTime - elapsed;
+                            if (sleepTime > 0 && sleepTime < 5000) { // Safety cap
+                                try {
+                                    Thread.sleep(sleepTime);
+                                } catch (InterruptedException e) {
+                                    break; // Download cancelled
+                                }
+                            }
+                        }
+                    }
                 }
             }
             
@@ -254,6 +304,7 @@ class DownloadItem {
     private long totalSize;
     private long downloadedSize;
     private int progress;
+    private long speed; // ✅ NEW: KB/s
     
     public DownloadItem(String videoId, String videoTitle, String downloadUrl, String filePath) {
         this.videoId = videoId;
@@ -264,6 +315,7 @@ class DownloadItem {
         this.totalSize = 0;
         this.downloadedSize = 0;
         this.progress = 0;
+        this.speed = 0;
     }
     
     public boolean isDownloading() {
@@ -314,8 +366,14 @@ class DownloadItem {
         return downloadedSize;
     }
     
+    // ✅ CHANGED: Now actually tracks speed
     public long getSpeed() {
-        return 0;
+        return speed;
+    }
+    
+    // ✅ NEW
+    public void setSpeed(long speedKBps) {
+        this.speed = speedKBps;
     }
     
     public void setStatus(String status) {
