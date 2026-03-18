@@ -1,5 +1,5 @@
 # VidmateME
-# VidmateME v2.0 — YouTube Downloader for J2ME 📱
+# VidmateME  — YouTube Downloader for J2ME 📱
 
 ![J2ME Logo](https://img.shields.io/badge/Platform-J2ME_MIDP_2.0-blue?logo=java)
 ![License](https://img.shields.io/badge/License-MIT-green)
